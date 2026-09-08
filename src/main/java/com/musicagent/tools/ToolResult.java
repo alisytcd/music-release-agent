@@ -10,7 +10,7 @@ package com.musicagent.tools;
  * to do next -- same as a real LLM-driven agent has to handle a failed API
  * call inline, without a human developer there to catch the exception.
  *
- * TODO(you): implement this as a small immutable value holder.
+ *
  *   - two fields: a boolean ok, and a String text
  *   - a private constructor
  *   - static factory methods ok(String) and error(String)
