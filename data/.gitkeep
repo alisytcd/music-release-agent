@@ -1,0 +1,4 @@
+This directory holds data/state.json at runtime (ReleaseMemory's persisted
+state). It's empty in the skeleton on purpose -- your ReleaseMemory.save()
+implementation should create the file itself, and load() should handle it
+not existing yet on the very first run.
