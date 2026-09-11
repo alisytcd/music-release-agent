@@ -1,5 +1,14 @@
 package com.musicagent.memory;
 
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * Persistent state: "the last release we already told the user about, per
  * artist". Without this, every run would report an artist's ENTIRE back
@@ -31,23 +40,81 @@ package com.musicagent.memory;
  */
 public final class ReleaseMemory {
 
+    private HashMap<String,ArtistState> artistStates;
+
     public ReleaseMemory() {
-        // TODO(you)
+
+        this.artistStates = new HashMap<>();
+
     }
 
-    public void load(String path) {
-        throw new UnsupportedOperationException("TODO: implement ReleaseMemory.load");
+
+    /* Stored as JSON at data/state.json, shape roughly:
+     *   { "Radiohead": { "lastSeenDate": "2016-05-08", "lastSeenTitle": "A Moon Shaped Pool" },
+     *     "Fred again..": { "lastSeenDate": "2024-01-01", "lastSeenTitle": "Actual Life 3" } }
+     */
+    public void load(String path) throws IOException {
+
+        Path filePath = Path.of(path);
+
+        if(Files.exists(filePath)){
+            JSONObject releaseContents = new JSONObject(Files.readString(filePath));
+            Set<String> artistNames = releaseContents.keySet();
+            for(String artistName : artistNames){
+                JSONObject artist = releaseContents.getJSONObject(artistName);
+                ArtistState artistState = new ArtistState(artist.getString("lastSeenDate"),artist.getString("lastSeenTitle"));
+                artistStates.put(artistName,artistState);
+
+            }
+
+        }
+
     }
 
-    public void save(String path) {
-        throw new UnsupportedOperationException("TODO: implement ReleaseMemory.save");
+    /* Stored as JSON at data/state.json, shape roughly:
+     *   { "Radiohead": { "lastSeenDate": "2016-05-08", "lastSeenTitle": "A Moon Shaped Pool" },
+     *     "Fred again..": { "lastSeenDate": "2024-01-01", "lastSeenTitle": "Actual Life 3" } }
+     */
+    public void save(String path) throws IOException {
+
+        Path filePath = Path.of(path);
+
+        JSONObject artistObject = new JSONObject();
+
+        for(Map.Entry<String,ArtistState> entry : artistStates.entrySet()){
+
+            String artistName = entry.getKey();
+
+            String lastSeenDate = entry.getValue().getLastSeenDate();
+
+            String lastSeenTitle = entry.getValue().getLastSeenTitle();
+
+            JSONObject releaseDetailsObject = new JSONObject();
+            releaseDetailsObject.put("lastSeenDate",lastSeenDate);
+            releaseDetailsObject.put("lastSeenTitle",lastSeenTitle);
+
+
+            artistObject.put(artistName,releaseDetailsObject);
+
+        }
+
+        Files.writeString(filePath,artistObject.toString());
     }
 
     public String getLastSeenDate(String artist) {
-        throw new UnsupportedOperationException("TODO: implement ReleaseMemory.getLastSeenDate");
+
+        if(artistStates.containsKey(artist)) {
+            return artistStates.get(artist).getLastSeenDate();
+        }
+        else return null;
+
     }
 
     public void recordLatest(String artist, String date, String title) {
-        throw new UnsupportedOperationException("TODO: implement ReleaseMemory.recordLatest");
+
+        ArtistState latestArtistState = new ArtistState(date,title);
+
+        artistStates.put(artist,latestArtistState);
+
     }
 }
