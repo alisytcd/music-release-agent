@@ -15,7 +15,6 @@ public final class ArtistMatch {
     private double score;
 
     public ArtistMatch(String mbid, String name, double score) {
-        // TODO(you)
         this.mbid = mbid;
         this.name = name;
         this.score = score;

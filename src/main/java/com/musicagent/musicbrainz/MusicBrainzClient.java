@@ -1,5 +1,16 @@
 package com.musicagent.musicbrainz;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -37,33 +48,123 @@ import java.util.List;
  *     busywork -- most public APIs you'll integrate an agent with have some
  *     form of rate limit, and "the agent silently gets rate-limited /
  *     blocked" is a good thing to be able to talk about in an interview.
- *
- * TODO(you):
- *   - a java.net.http.HttpClient field, built once in the constructor
- *   - searchArtist(String name): build the URL (remember to URL-encode the
- *     query), send the GET with the User-Agent header, parse the JSON
- *     response, return the best ArtistMatch (or null / throw / Optional --
- *     decide how you want callers to detect "not found")
- *   - getReleaseGroups(String mbid): same idea, GET the browse endpoint,
- *     parse "release-groups" into a List<ReleaseGroup>
- *   - you'll need a JSON library for parsing -- add org.json:json (or
- *     Jackson, if you're more comfortable with it) as a Maven dependency
- *     rather than hand-rolling a parser; that's not where the interesting
- *     agent work is
  */
 public final class MusicBrainzClient {
 
+    private long lastRequestAtMillis = 0;
     private static final String BASE_URL = "https://musicbrainz.org/ws/2";
 
+    private final HttpClient httpClient;
+
     public MusicBrainzClient() {
-        // TODO(you): build and store an HttpClient
+        this.httpClient = HttpClient.newHttpClient();
     }
 
-    public ArtistMatch searchArtist(String name) {
-        throw new UnsupportedOperationException("TODO: implement MusicBrainzClient.searchArtist");
+    public ArtistMatch searchArtist(String name) throws IOException, InterruptedException {
+
+        String encodedName = URLEncoder.encode(name,StandardCharsets.UTF_8);
+
+        String urlPath = BASE_URL+"/artist?query="+encodedName+"&fmt=json";
+
+        HttpResponse<String> response = makeRequestAndGetResponse(urlPath);
+
+        //if we get some kind of issue with the service or rate limited or something of the sort
+        if(response.statusCode()!=200){
+            return new ArtistMatch("-1","SERVICE_ERROR",0);
+        }
+
+        return getArtistFromResponse(response.body());
     }
 
-    public List<ReleaseGroup> getReleaseGroups(String artistMbid) {
-        throw new UnsupportedOperationException("TODO: implement MusicBrainzClient.getReleaseGroups");
+    public List<ReleaseGroup> getReleaseGroups(String artistMbid) throws InterruptedException, IOException {
+
+        String encodedMbid = URLEncoder.encode(artistMbid,StandardCharsets.UTF_8);
+
+        String urlPath = BASE_URL+"/release-group?artist="+encodedMbid+"&limit=100&fmt=json";
+
+        HttpResponse<String> response = makeRequestAndGetResponse(urlPath);
+
+        List<ReleaseGroup> resultGroups = new ArrayList<>();
+
+        if(response.statusCode()!=200){
+            resultGroups.add(new ReleaseGroup("-1","SERVICE_ERROR","-1","-1"));
+            return resultGroups;
+        }
+
+        return getReleaseGroupsFromResponse(response.body());
+    }
+
+    private void awaitForRateLimit() throws InterruptedException {
+        long elapsed = System.currentTimeMillis() - lastRequestAtMillis;
+        if (elapsed < 1000) {
+            Thread.sleep(1000 - elapsed);
+        }
+        lastRequestAtMillis = System.currentTimeMillis();
+    }
+
+    private ArtistMatch getArtistFromResponse(String response){
+
+        JSONObject responseJson = new JSONObject(response);
+        JSONArray artistsArray = responseJson.getJSONArray("artists");
+
+        if(artistsArray.isEmpty()){
+            return new ArtistMatch("-1","NOT_FOUND",0);
+        }
+
+        double highestScore = 0;
+        String artistId=null;
+        String artistName=null;
+
+        for(int i = 0 ; i < artistsArray.length(); i++){
+
+            JSONObject currentArtist = artistsArray.getJSONObject(i);
+            double currentArtistScore = currentArtist.getDouble("score");
+
+            if(currentArtistScore > highestScore){
+                artistId = currentArtist.getString("id");
+                artistName = currentArtist.getString("name");
+                highestScore = currentArtistScore;
+            }
+        }
+        return new ArtistMatch(artistId,artistName,highestScore);
+    }
+
+    private ArrayList<ReleaseGroup> getReleaseGroupsFromResponse(String response){
+
+        JSONObject responseJson = new JSONObject(response);
+        JSONArray releaseGroupsArray = responseJson.getJSONArray("release-groups");
+
+        ArrayList<ReleaseGroup> resultGroups = new ArrayList<>();
+
+        for(int i = 0; i < releaseGroupsArray.length() ; i++){
+
+            JSONObject currentReleaseGroup = releaseGroupsArray.getJSONObject(i);
+
+            String id = currentReleaseGroup.getString("id");
+
+            String title = currentReleaseGroup.getString("title");
+
+            String primaryType = currentReleaseGroup.getString("primary-type");
+
+            String firstReleaseDate = currentReleaseGroup.getString("first-release-date");
+
+            resultGroups.add(new ReleaseGroup(id,title,primaryType,firstReleaseDate));
+        }
+
+        return resultGroups;
+    }
+
+    private HttpResponse<String> makeRequestAndGetResponse(String urlPath) throws InterruptedException, IOException {
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .GET()
+                .uri(URI.create(urlPath)).header("User-Agent","MusicReleaseAgent/1.0 ( alisy@tcd.ie )")
+                .build();
+
+        awaitForRateLimit();
+
+        HttpResponse <String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        return response;
     }
 }
