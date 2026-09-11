@@ -15,8 +15,6 @@ package com.musicagent.musicbrainz;
  *   - constructor + getters/public fields
  */
 public final class ReleaseGroup {
-
-    // TODO(you)
     private String mbid;
 
     private String title;
