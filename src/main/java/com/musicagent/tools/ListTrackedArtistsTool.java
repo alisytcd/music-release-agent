@@ -1,5 +1,6 @@
 package com.musicagent.tools;
 
+import org.json.JSONArray;
 import java.util.List;
 import java.util.Map;
 
@@ -14,40 +15,34 @@ import java.util.Map;
  * your control flow. That's the whole point of the exercise -- in Milestone
  * 2 you'll make the mock brain call this tool first, read its Observation,
  * and only then decide to call check_new_releases once per artist.
- *
- * TODO(you):
- *   - store the List<String> artist names passed into the constructor
- *   - name() -> "list_tracked_artists"
- *   - description() -> a sentence the LLM (or a human) would use to know
- *     when to call this
- *   - inputSpec() -> something like "{} (no input required)"
- *   - execute(input) -> ignore the input, return a ToolResult.ok(...) whose
- *     text is a JSON array of the artist names (e.g. via org.json's
- *     JSONArray, or even just a manually built string -- your call)
  */
 public final class ListTrackedArtistsTool implements Tool {
 
+    private List<String> trackedArtists;
     public ListTrackedArtistsTool(List<String> trackedArtists) {
-        // TODO(you)
+        this.trackedArtists = trackedArtists;
     }
 
     @Override
     public String name() {
-        throw new UnsupportedOperationException("TODO");
+        return "list_tracked_artists";
     }
 
     @Override
     public String description() {
-        throw new UnsupportedOperationException("TODO");
+        return "List the artists that the user cares about tracking";
     }
 
     @Override
     public String inputSpec() {
-        throw new UnsupportedOperationException("TODO");
+        return "{}";
     }
 
     @Override
     public ToolResult execute(Map<String, Object> input) {
-        throw new UnsupportedOperationException("TODO");
+
+        JSONArray artists = new JSONArray(trackedArtists);
+
+        return ToolResult.ok(artists.toString());
     }
 }
